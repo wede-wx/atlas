@@ -31,7 +31,8 @@ This is Goal Drift: "implement the feature" became "make the feature disappear."
       "verify_by": "The feature remains present and functional after the fix."
     }
   ],
-  "preserve": []
+  "preserve": [],
+  "assumptions": []
 }
 ```
 

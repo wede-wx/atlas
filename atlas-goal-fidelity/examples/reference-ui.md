@@ -38,7 +38,8 @@ This is Reference Drift: style survived, structure was lost.
       "source_quote": "match the attached mockup",
       "verify_by": "Compare the rendered page against the mockup before final styling polish."
     }
-  ]
+  ],
+  "assumptions": []
 }
 ```
 

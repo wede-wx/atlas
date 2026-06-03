@@ -43,7 +43,8 @@ This is Requirement Downgrade: "fully implement" became "frontend-only demo."
       "verify_by": "Completion is reported only after UI, backend, and real round-trip checks pass."
     }
   ],
-  "preserve": []
+  "preserve": [],
+  "assumptions": []
 }
 ```
 
