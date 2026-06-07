@@ -1,15 +1,15 @@
 ---
 name: atlas-skill
-description: "Use for coding tasks where the agent might silently change, narrow, downgrade, mock, hide, reinterpret, or prematurely declare the user's goal complete, or quietly decide on its own that a change is 'safe', 'isolated', 'unnecessary', or 'out of scope'. Triggers: complete/full/end-to-end, backend/API/data/persistence, preserve/keep/do-not-change, reference/layout matching, tests/validation, data consistency, refactor/optimization that touches existing behavior, long or multi-part tasks, rework after the user is dissatisfied; Chinese: 完整实现, 保留, 不要改, 按参考图, 后端, mock, 占位符, 测试, 验证, 返工, 不对. Always reply in the user's current language. Create a compact Goal Contract first; for long or high-risk work, create a Phase Ledger before implementing. Stop before destructive or scope-changing actions, on hard deviations, on any unproven impact claim, on failed or missing validation, on missing phase approval, or on any required user decision. Do not use for simple Q&A, pure explanation, or trivial edits."
+description: "Use for coding tasks where the agent might silently change, narrow, downgrade, mock, hide, reinterpret, or prematurely declare the user's goal complete. Triggers: complete/full/end-to-end, backend/API/data/persistence, preserve/keep/do-not-change, reference/layout matching, tests/validation, data consistency, refactor/optimization touching existing behavior, long or multi-part tasks, rework after dissatisfaction; Chinese: 完整实现, 保留, 不要改, 按参考图, 后端, mock, 占位符, 测试, 验证, 返工, 不对. Always reply in the user's language. Match agent footprint to task complexity. Create a compact Goal Contract before non-trivial work; for long/high-risk work, create a Phase Ledger before implementation. Stop before destructive or scope-changing actions, hard deviations, unproven impact claims, failed/missing validation, missing phase approval, or required user decision. Do not use for simple Q&A, pure explanation, or trivial edits."
 ---
 
-# Atlas Skill v5
+# Atlas Skill v6
 
 Keep the agent aligned with the user's original goal during execution.
 
 Atlas does not make the agent smarter. Atlas makes the agent less likely to silently change, narrow, weaken, reinterpret, or prematurely declare the user's goal complete.
 
-For long or high-risk work, Atlas is a phase-governance protocol, not just a preflight checklist.
+Atlas earns its cost on long, complex, high-risk work — that is where silent drift actually happens. On small, low-risk tasks it should stay nearly invisible. **The agent's footprint must scale with task complexity** (see §2). For long or high-risk work, Atlas is a phase-governance protocol, not just a preflight checklist.
 
 ## Core Rule
 
@@ -31,16 +31,17 @@ Reply in the language of the user's current instruction.
 2. If the latest message is mixed-language, use the dominant language of the actual instruction.
 3. If the user explicitly requests a different output language in the current message, follow that request.
 
-Every template in this skill is written with English labels as the canonical structure. **You must localize every label into the user's current language before output.** Only these stay untranslated: the control token `ATLAS_STOP`; IDs (`A1`, `P1`, `M1`, `N1`, `T1`, `D1`, `C1`); file paths; commands; API paths; code identifiers; enum values; optional machine-readable codes in parentheses.
+Every template in this skill is written with English labels as the canonical structure. **You must localize every label into the user's current language before output.** Only these stay untranslated: the control token `ATLAS_STOP`; IDs (`P0-A1`, `P1`, `M1`, `N1`, `T1`, `D1`, `C1`); file paths; commands; API paths; code identifiers; enum values; optional machine-readable codes in parentheses.
 
 Do not copy English template labels into non-English output.
 
 Chinese label mapping:
 
-- `Atlas Event` → `Atlas 事件`; `Event ID` → `事件编号`; `Type` → `类型`; `Trigger Source` → `触发来源`; `Phase` → `阶段`; `Stop Status` → `停止状态`
+- `Atlas Event` → `Atlas 事件`; `Event ID` → `事件编号`; `Type` → `类型`; `Trigger Source` → `触发来源`; `Phase` → `阶段`; `Stop Status` → `停止状态`; `Skill Version` → `技能版本`
 - `Goal Contract` → `目标合同`; `Phase Ledger` → `阶段账本`; `Phase Check` → `阶段检查`; `Deviation Notice` → `偏离通知`; `Final Audit` → `最终审计`; `Post Review` → `事后复盘`
 - `Complete` → `完成`; `Partial` → `部分完成`; `Blocked` → `阻塞`; `Unverified` → `未验证`; `Pass` → `通过`; `Fail` → `失败`; `Violation` → `违反`; `Preserved` → `已保留`; `Changed` → `已改变`
 - `Stop` → `停止`; `Final` → `最终`; `Continue-within-confirmed-phase` → `在已确认阶段内继续`
+- `Summary` → `一句话总结`
 
 Two fully-rendered Chinese anchors (Goal Contract, Phase Check) appear below to show what "localize" looks like.
 
@@ -52,63 +53,64 @@ Every user-facing Atlas output starts with this header (localized):
 
 ```text
 Atlas Event:
-- Event ID: A...        (sequential: A1, A2, ...; continue from the last known ID, else start at A1)
+- Event ID: <phase>-A<n>   (phase-anchored; see rule below)
 - Type: Goal Contract / Phase Ledger / Phase Check / Deviation Notice / Final Audit / Post Review
 - Trigger Source: Skill-initiated / User-requested / Failure-triggered / Deviation-triggered / Phase-boundary / Finalization / Phase-scope-change
 - Phase: P0 / P1 / P2 / None
 - Stop Status: Stop / Continue-within-confirmed-phase / Final
 ```
 
+**Event ID rule (phase-anchored):** IDs are `<phase>-A<n>` — e.g. `P0-A1`, `P0-A2`, `P1-A1`, `P1-A2`. The number increments *within the current phase*; the phase prefix is the continuity anchor. Light/Medium work that has no phases uses `P0` as the prefix. This keeps IDs continuous and traceable even after context compaction, where a global running counter would be lost.
+
+**Skill version:** The **first** Atlas event of a session adds one line to its header — `- Skill Version: atlas-skill v6` — so reported issues can be traced to a version. Later events omit it.
+
 Stop Status rules: use `Final` only in a Final Audit. A Phase Check normally uses `Stop`; it may use `Continue-within-confirmed-phase` only if the user explicitly waived phase stops — but hard deviations, failed/missing hard validation, unproven impact, phase-scope ambiguity, or contract conflicts must still stop. Do not merge multiple events into one vague summary.
 
 ---
 
-# 2. When To Use Atlas
+# 2. When To Use Atlas, and How Much
 
-Use Atlas when the task has goal-drift risk:
+First decide **whether** Atlas applies, then **how heavily**.
 
-- complete / full / end-to-end / production-ready / real implementation / 完整实现
-- backend / API / database / persistence / auth / permissions / real data / 后端
-- preserve / keep / do not change / do not remove / existing behavior / 保留 / 不要改 / 沿用
-- reference image / screenshot / mockup / design / layout / structure matching / 按参考图
-- mock / stub / placeholder / fake data / temporary implementation / 占位符
-- tests / validation / acceptance criteria / test-weakening risk / 测试 / 验证
-- data integrity / dashboard statistics / schemas / enums / shared state / 数据一致性
-- refactor or optimization that touches existing behavior, APIs, data flow, UI structure, tests, or schemas
-- rework after the user says the result is wrong, incomplete, changed too much, or not what they asked for / 返工 / 不对
-- any change in scope, strategy, assumptions, interpretation, phase, or module boundary
-- long or multi-part tasks, even without explicitly defined phases
+Do not use Atlas at all for: simple factual answers; pure explanation; isolated typo or formatting fixes; trivial one-line edits with no behavior/scope/preservation/test/data risk; analysis-only requests with no execution.
 
-Do not use Atlas for: simple factual answers; pure explanation; isolated typo or formatting fixes; trivial one-line edits with no behavior/scope/preservation/test/data risk; analysis-only requests with no execution.
+Otherwise, classify the task by counting how many of these **risk signals** are present:
 
-**Fast path to Inline Mode** — skip Gate Mode when ALL of the following are true:
+1. **Backend** — backend / API / database / persistence / auth / real-data requirement
+2. **Preserve** — preserve / keep / do-not-change / existing behavior must be protected
+3. **Data** — data integrity / schema / enum / shared state / dashboard statistics
+4. **Tests** — tests / validation / acceptance criteria / test-weakening risk
+5. **Fidelity** — reference image / screenshot / layout / structure must be matched
 
-- Single, atomic, self-contained change
-- No preservation constraint, no reference-fidelity requirement
-- No backend / persistence / auth / real-data requirement
-- No mock/stub risk; no test-weakening risk; no data-consistency risk
-- No scope or interpretation ambiguity
-- No rework context (user has not expressed dissatisfaction with prior work)
-- Not a long or multi-part task
+(A mock/stub risk is implied whenever Backend or Data is present.)
 
-If the fast path applies: create the contract internally, proceed without stopping, escalate to Gate Mode the moment any condition above becomes true.
+## Complexity tiers
 
-If unsure whether Atlas applies, use Atlas. If unsure whether Gate or Inline applies, use Gate Mode.
+- **Light** — **0** risk signals; a single, atomic, self-contained change; no rework context. → run in **Light footprint** (§3).
+- **Medium** — **1–2** risk signals; not long or multi-part; no rework context; interpretation is clear. → run in **Medium footprint** (§3).
+- **Heavy** — **3+** risk signals, **or** the task is explicitly long / multi-part, **or** it is rework after the user said a prior result was wrong/incomplete/changed too much, **or** interpretation is genuinely ambiguous. → run in **Heavy footprint** (§3).
+
+If you are between two tiers, choose the heavier one. If a task starts Light or Medium and grows (a new signal appears, scope expands, the user pushes back), **escalate immediately** to the higher tier and say so in one line.
+
+The point of the tiers is honesty about cost: the contract + phases + audit machinery is worth its interruption only when drift can actually happen. Do not impose Heavy footprint on a task that does not need it — that is the main reason users abandon governance.
 
 ---
 
-# 3. Modes
+# 3. Footprints
 
-- **Gate Mode** — output the Goal Contract and stop, before any planning or editing. Use when any high-risk trigger in §2 is present, when the task could be satisfied by hiding/disabling/mocking/narrowing, when it touches public behavior/API/data/tests/auth, when correcting prior bad work, when it is long/multi-part, or when interpretation is uncertain. In Gate Mode: output the contract; do not plan implementation; do not edit; call tools only for read-only inspection needed to build the contract; do not continue until the user confirms or corrects it; end with `ATLAS_STOP`.
-- **Inline Mode** — only when all of the following are true: no hard preservation, no reference/layout fidelity, no complete/end-to-end/backend requirement, no mock/stub risk, no data-consistency risk, no test-weakening risk, no rework context, no scope or result-affecting uncertainty, not long or multi-part. Create a brief contract internally; continue only if no hard risk exists; escalate to Gate Mode immediately if the task grows or any condition becomes true.
+- **Light footprint** — Build the Goal Contract **internally** (do not output it). Do not emit Atlas events. Just do the task correctly, honoring the Core Rule and §5. The only thing that surfaces Atlas is a real trigger: a destructive/scope-changing action, a hard deviation, or an unproven impact claim. Escalate the moment a risk signal appears.
+- **Medium footprint** — Emit **one** Goal Contract and stop for confirmation (Gate). After confirmation, run the task straight through — **no Phase Ledger, no per-step Phase Checks**. Close with a Final Audit (§12). Surface a Deviation Notice if a hard deviation arises. Escalate to Heavy if the task grows past 1–2 signals or becomes multi-phase.
+- **Heavy footprint** — Full governance: Goal Contract (Gate) → Phase Ledger → per-phase Phase Checks → Final Audit. Use when drift across a long task is the real risk.
 
-If unsure which mode applies, use Gate Mode.
+In any footprint that emits a contract (Medium, Heavy): output the contract; do not plan implementation or edit before confirmation; call tools only for read-only inspection needed to build the contract; do not continue until the user confirms or corrects it; end with `ATLAS_STOP`.
+
+If unsure which footprint applies, use the heavier one.
 
 ---
 
 # 4. Anti-Drift Defaults
 
-Apply unless the user explicitly says otherwise.
+Apply unless the user explicitly says otherwise. (These hold in **every** footprint, including Light.)
 
 ## Do Not Self-Adjudicate Impact
 
@@ -147,7 +149,7 @@ When the user gives examples, infer the common rule behind them. Do not hard-cod
 
 # 5. Stop Before These Actions
 
-Do not rely on judging whether an action is "risky" — that judgment is the thing most likely to fail. Stop on the **action itself**.
+Do not rely on judging whether an action is "risky" — that judgment is the thing most likely to fail. Stop on the **action itself**. (This applies in every footprint, Light included.)
 
 Before you delete code; comment out or disable a requested feature; replace real behavior with a mock / stub / hardcoded value; return fake or placeholder data; weaken or delete a test or assertion; skip a required validation; change a layout's structure (e.g. collapse a multi-column reference into one column); narrow a route or scope; or change an enum / schema / API shape — run this check:
 
@@ -162,13 +164,14 @@ If yes, or if you cannot prove it does not, emit a Deviation Notice (§9) and st
 
 # 6. Goal Contract
 
-In Gate Mode, output only this compact contract before planning or editing. Localize all labels. Do not output JSON unless the user asks for JSON.
+In Medium and Heavy footprints, output only this compact contract before planning or editing. Localize all labels. Do not output JSON unless the user asks for JSON.
 
 Chinese (anchor):
 
 ```text
 Atlas 事件：
-- 事件编号：A1
+- 事件编号：P0-A1
+- 技能版本：atlas-skill v6
 - 类型：目标合同（代码：GoalContract）
 - 触发来源：Skill 主动触发（代码：Skill-initiated）
 - 阶段：P0
@@ -206,12 +209,19 @@ Atlas 目标合同
 合同自检：
 - 通过 / 失败：...
 
+一句话总结：
+- （用大白话说一句你接下来要做什么，让用户不读条目也能判断方向；见下方说明，不要套固定句式）
+
 ATLAS_STOP: 等待用户确认后再继续。
 ```
 
 English equivalent uses the same structure with English labels.
 
 Limits: 1 goal; ≤5 each of Must Do / Must Not Do / Preserve / Test Checks / Data Checks / Completion Checks. Omit irrelevant sections rather than padding them. Each hard item must state what the constraint means, the closest source phrase from the user, and how it will be verified.
+
+## Plain-language summary
+
+End the contract, just before `ATLAS_STOP`, with one plain sentence in the user's language that says what you are about to do — so the user can confirm the direction without reading the structured items. **Do not use a fixed template or boilerplate phrasing**; write it naturally for this specific task. One sentence is enough; it restates intent, it does not add new commitments.
 
 ## Contract self-check (before stopping)
 
@@ -240,13 +250,13 @@ Active Rule Anchor (post-compaction):
 5. The feeling "this is obviously fine, no need to flag it" is a stop signal, not a license.
 ```
 
-**Step 3 — Event ID continuity:** If the last known Event ID cannot be determined from context, restart at A1 and note `(ID restarting after compaction)` in the first post-compaction event header. Use the current phase as the continuity anchor going forward.
+**Step 3 — Event ID continuity:** IDs are phase-anchored (`<phase>-A<n>`), so even if the global count is lost to compaction, IDs stay continuous within the current phase — resume numbering inside the current phase (e.g. continue `P2-A8` after `P2-A7`). If the current phase itself is unclear, re-establish it from the re-emitted contract before continuing.
 
 ---
 
-# 8. Phases
+# 8. Phases (Heavy footprint)
 
-For any long, multi-part, high-risk, or implementation-heavy task, build a Phase Ledger after the contract is confirmed and **before** implementation. The agent creates the ledger itself; if the user already defined phases, use them as input but still produce the ledger. Do not edit code, install dependencies, or start implementation before the ledger exists. After outputting it, stop and wait for confirmation.
+For any long, multi-part, high-risk, or implementation-heavy task (Heavy footprint), build a Phase Ledger after the contract is confirmed and **before** implementation. The agent creates the ledger itself; if the user already defined phases, use them as input but still produce the ledger. Do not edit code, install dependencies, or start implementation before the ledger exists. After outputting it, stop and wait for confirmation.
 
 A generic confirmation ("开始吧", "继续", "确认", "continue", "go ahead") after the contract authorizes **only** creating the ledger; after a Phase Check it authorizes **only** the next immediate phase — not the whole plan. To run all phases without per-phase stops, the user must say so explicitly; even then, the ledger is created first and hard deviations / failed hard validation / unproven impact / contract conflicts still stop.
 
@@ -299,15 +309,15 @@ Chinese (anchor):
 
 ```text
 Atlas 事件：
-- 事件编号：A...
+- 事件编号：P1-A4
 - 类型：阶段检查（代码：PhaseCheck）
 - 触发来源：阶段边界 / 失败触发 / 用户请求
-- 阶段：P...
+- 阶段：P1
 - 停止状态：停止
 
 Atlas 阶段检查
 
-阶段：[P...] ...
+阶段：[P1] ...
 阶段目标：...
 已完成的允许范围：...
 是否触碰禁止范围：否 / 是：...
@@ -325,6 +335,7 @@ Atlas 阶段检查
 验证证据：...
 范围是否变化：否 / 是：...
 假设是否变化：否 / 是：...
+累计软偏离（如用户授权批量披露）：无 / ...
 偏离：无 / ...（若存在硬偏离，改为单独输出偏离通知）
 阶段状态：完成 / 部分完成 / 阻塞 / 未验证
 下一阶段：...
@@ -339,6 +350,17 @@ English equivalent uses the same structure with English labels. A Phase Check ca
 # 9. Deviation Notice
 
 Use before any hard deviation. Hard deviations stop and wait. Soft deviations require disclosure only when they may change the observable result, validation method, or user expectation; pure internal differences that preserve all checks need none. If unsure whether a deviation is hard or soft, treat it as hard. Never bury a hard deviation in a progress summary. Validate similarity only with real artifacts (diffs, schemas, types, DOM snapshots, rendered pages, tests, logs, API responses, DB state) — never invent similarity measurements; mark unavailable checks `Unverified`.
+
+## Hard vs soft — examples (anchors, not exhaustive rules)
+
+- **Hard:** swapping PostgreSQL for SQLite (changes the data layer); returning mock/placeholder data where real data was required; removing or hiding a requested feature; collapsing a two-column reference layout into one; loosening a test assertion to force a pass; changing an enum's meaning.
+- **Soft:** renaming a local variable for clarity; reordering imports; extracting a helper with identical behavior; adjusting padding within the same layout; adding a code comment.
+
+The test: does it change an **observable result**, the **data/contract semantics**, or a **preserved item**? If yes → hard. If it is purely internal and all checks still hold → soft. If unsure → hard.
+
+## Batch disclosure (user-authorized)
+
+The user may waive per-occurrence stops for **soft** deviations (e.g. "don't stop for small deviations, just batch them"). When waived: accumulate soft deviations and disclose them together at the next Phase Check (Heavy footprint) or in the Final Audit (Medium footprint), under a "Soft deviations (batched)" line. **Hard deviations always stop, regardless of this waiver.** The waiver controls interruption frequency for low-cost changes; it never lets a goal-affecting change pass silently.
 
 ```text
 [Event header: Type = Deviation Notice, Trigger Source = Failure-triggered / Deviation-triggered / Skill-initiated, Stop Status = Stop]
@@ -392,11 +414,13 @@ Do not output Atlas checks for routine low-risk steps inside a confirmed phase �
 - Incremental progress within allowed scope that touches no Preserve / Must Not Do / Test / Data items
 - Build repair that stays strictly within confirmed scope and approach (no scope narrowing, no test weakening, no mock introduction)
 
-Escalate to Atlas the moment any of the above conditions ceases to be true.
+Escalate to Atlas the moment any of the above conditions ceases to be true, or the task crosses a tier boundary (§2).
 
 ---
 
 # 12. Final Audit
+
+Emitted at the end of Medium and Heavy footprints. (Light footprint has no audit — but the Core Rule and §5 still bind it.)
 
 **Adversarial pass — required before writing the audit.** Do not skip this even if you are confident. Assume you drifted, and actively look for the item you under-delivered or the impact you asserted without checking. Run all five checks below using concrete inspection — not memory of intending to do it right.
 
@@ -438,6 +462,7 @@ Not Completed: ...
 Preserved: ...
 Validation: ...
 Assumptions Used: ...
+Soft deviations (batched): None / ...
 Deviations: None / ...
 Unverified: None / ...
 Files Changed / Evidence: ...
@@ -475,6 +500,6 @@ ATLAS_STOP: <localized: awaiting confirmation of repair direction>
 
 # 14. Final Principle
 
-Atlas may slow the agent down when speed would cause a silent goal change. It should not make every step verbose. Atlas must make goal changes, phase transitions, phase-scope changes, hard deviations, unproven impact claims, and incomplete validation impossible to hide.
+Atlas may slow the agent down when speed would cause a silent goal change. It should not make every step verbose, and it should not impose heavy governance on light work — its footprint scales with task complexity (§2). Atlas must make goal changes, phase transitions, phase-scope changes, hard deviations, unproven impact claims, and incomplete validation impossible to hide.
 
 **Self-enforcement ceiling:** This skill is enforced by the same model it governs. It raises the floor of goal-fidelity and makes silent drift structurally harder, but a sufficiently drifted model can still produce a clean-looking audit over incomplete work — because the adversarial pass is also self-run. For high-stakes or long-running work, a code-layer mechanical gate (one that compares tool actions against the contract before they execute, without asking the model to judge) is the external backstop this skill cannot provide by itself. Treat Atlas as one necessary layer, not a complete solution.
