@@ -1,9 +1,9 @@
 ---
-name: atlas-skill
-description: "Use for coding tasks where the agent might silently change, narrow, downgrade, mock, hide, reinterpret, or prematurely declare the user's goal complete. Triggers: complete/full/end-to-end, backend/API/data/persistence, preserve/keep/do-not-change, reference/layout matching, tests/validation, data consistency, refactor/optimization touching existing behavior, long or multi-part tasks, rework after dissatisfaction; Chinese: 完整实现, 保留, 不要改, 按参考图, 后端, mock, 占位符, 测试, 验证, 返工, 不对. Always reply in the user's language. Match agent footprint to task complexity. Create a compact Goal Contract before non-trivial work; for long/high-risk work, create a Phase Ledger before implementation. Stop before destructive or scope-changing actions, hard deviations, unproven impact claims, failed/missing validation, missing phase approval, or required user decision. Do not use for simple Q&A, pure explanation, or trivial edits."
+name: atlas-contract
+description: "Core skill of the Atlas series. Use when coding tasks risk silent goal drift: complete/full/end-to-end work, backend/API/data/persistence, preserve/keep/do-not-change, reference/layout matching, tests/validation, data consistency, behavior-touching refactor/optimization, long or multi-part work, or rework after dissatisfaction; Chinese: 完整实现, 保留, 不要改, 按参考图, 后端, mock, 占位符, 测试, 验证, 返工, 不对. Reply in the user's language. Match footprint to task complexity. Create a Goal Contract before non-trivial work; for long/high-risk work create a Phase Ledger before implementation. If Atlas.md exists, load confirmed clauses. Stop before destructive/scope-changing actions, hard deviations, unproven impact claims, failed/missing validation, missing phase approval, or required user decisions. Do not use for simple Q&A, pure explanation, or trivial edits."
 ---
 
-# Atlas Skill v6
+# Atlas Contract v6
 
 Keep the agent aligned with the user's original goal during execution.
 
@@ -62,7 +62,7 @@ Atlas Event:
 
 **Event ID rule (phase-anchored):** IDs are `<phase>-A<n>` — e.g. `P0-A1`, `P0-A2`, `P1-A1`, `P1-A2`. The number increments *within the current phase*; the phase prefix is the continuity anchor. Light/Medium work that has no phases uses `P0` as the prefix. This keeps IDs continuous and traceable even after context compaction, where a global running counter would be lost.
 
-**Skill version:** The **first** Atlas event of a session adds one line to its header — `- Skill Version: atlas-skill v6` — so reported issues can be traced to a version. Later events omit it.
+**Skill version:** The **first** Atlas event of a session adds one line to its header — `- Skill Version: atlas-contract v6` — so reported issues can be traced to a version. Later events omit it.
 
 Stop Status rules: use `Final` only in a Final Audit. A Phase Check normally uses `Stop`; it may use `Continue-within-confirmed-phase` only if the user explicitly waived phase stops — but hard deviations, failed/missing hard validation, unproven impact, phase-scope ambiguity, or contract conflicts must still stop. Do not merge multiple events into one vague summary.
 
@@ -166,12 +166,28 @@ If yes, or if you cannot prove it does not, emit a Deviation Notice (§9) and st
 
 In Medium and Heavy footprints, output only this compact contract before planning or editing. Localize all labels. Do not output JSON unless the user asks for JSON.
 
+## Project Ledger Hook (read-back, runs first)
+
+Before building the contract, check for `Atlas.md` at the workspace root (written by the companion skill `atlas-ledger`). If it exists:
+
+1. Read only the **Confirmed Clauses** (ignore Provisional Observations unless one is directly relevant and clearly marked advisory).
+2. Match clauses whose `WHEN` condition is relevant to the current task.
+3. Carry in **at most 5** of the most relevant clauses — not all of them.
+4. Convert each: `DON'T` → a Must Not Do; `INSTEAD` → its required response / stop rule.
+5. Show them in the contract under a "Carried-in Ledger Clauses" line so the user sees the ledger working.
+
+**Precedence:** ledger clauses are project **defaults, not law.** The user's current explicit instruction always overrides a carried-in clause. If a carried-in clause conflicts with what the user is asking for this time, do not silently enforce it — surface the conflict and let the user decide.
+
+If `Atlas.md` is missing, malformed, stale, oversized, or ambiguous, say so in one line and continue without pretending it was fully applied. Never fabricate clauses.
+
+## Contract
+
 Chinese (anchor):
 
 ```text
 Atlas 事件：
 - 事件编号：P0-A1
-- 技能版本：atlas-skill v6
+- 技能版本：atlas-contract v6
 - 类型：目标合同（代码：GoalContract）
 - 触发来源：Skill 主动触发（代码：Skill-initiated）
 - 阶段：P0
