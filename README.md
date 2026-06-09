@@ -14,6 +14,10 @@ What a stronger model does *not* fix — and arguably makes worse — is this: d
 
 Atlas doesn't make the agent smarter. It makes those decisions, shortcuts, and unverified claims **impossible to hide** — so you can trust a strong model on long, high-stakes work where this kind of silent drift actually happens. See **[EXAMPLES.md](./EXAMPLES.md)** for a real run where both versions wrote good code, but only one let the user stay in the loop on a decision that changed the original request.
 
+> It swapped in another approach without asking. This time it was a good one — but can it really pick right in *every* case? That's just probability; you're betting it chooses correctly on its own. The other one lets you choose — while still telling you what it intended to do.
+>
+> 它换了种方式,但没经过同意。如果是好的方式,确实没问题——但它真能在每种情况下都自主选对吗?其实就是个概率,去赌它自己选对。第二个让你自己选,同时还给出了它自己的打算。
+
 ## The problem
 
 A silent goal change rarely feels like betrayal from the inside. It feels like progress — like fixing the build, like a harmless simplification, like a sensible substitution. So asking the model "are you being honest?" doesn't help: that question goes to the same judgment that already drifted.

@@ -83,7 +83,9 @@ The substitution — "real news API" → "Google News RSS" — is right there in
 
 Both wrote good code. Only one let you stay in the loop on the decision that changed what you asked for.
 
-> It swapped in another approach without asking. This time it was a good approach — but can it really pick right in *every* case? That's just a probability; you're betting it chooses correctly on its own. The other one lets you choose, while still telling you what it intended to do.
+> It swapped in another approach without asking. This time it was a good one — but can it really pick right in *every* case? That's just probability; you're betting it chooses correctly on its own. The other one lets you choose — while still telling you what it intended to do.
+>
+> 它换了种方式,但没经过同意。如果是好的方式,确实没问题——但它真能在每种情况下都自主选对吗?其实就是个概率,去赌它自己选对。第二个让你自己选,同时还给出了它自己的打算。
 
 That is the whole point. As models get stronger, their decisions get *more* plausible, which makes them *easier* to wave through without looking — and harder to notice when one is wrong. Atlas doesn't make the agent smarter. It makes the agent's decisions visible, so a capable model stays accountable to your actual goal instead of a quietly edited version of it.
 
