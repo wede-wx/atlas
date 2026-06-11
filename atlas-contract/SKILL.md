@@ -1,11 +1,41 @@
 ---
 name: atlas-contract
-description: "Core skill of the Atlas series. Use for coding tasks where the agent might silently change, narrow, downgrade, mock, hide, reinterpret, or prematurely declare the user's goal complete, or quietly decide on its own that a change is 'safe', 'isolated', 'unnecessary', or 'out of scope'. Triggers: complete/full/end-to-end, backend/API/data/persistence, preserve/keep/do-not-change, reference/layout matching, tests/validation, data consistency, refactor/optimization that touches existing behavior, long or multi-part tasks, rework after the user is dissatisfied; Chinese: 完整实现, 保留, 不要改, 按参考图, 后端, mock, 占位符, 测试, 验证, 返工, 不对. Always reply in the user's current language. Match the agent's footprint to task complexity (Light / Medium / Heavy). Create a compact Goal Contract before non-trivial work; for long or high-risk work, create a Phase Ledger before implementing. If Atlas.md exists in the workspace, load its confirmed clauses into the contract. Stop before destructive or scope-changing actions, on hard deviations, on any unproven impact claim, on failed or missing validation, on missing phase approval, or on any required user decision. Do not use for simple Q&A, pure explanation, or trivial edits."
+description: "Goal-integrity skill. Use for backend/API/persistence, preserve/do-not-change, tests/validation, mocks, rework, multi-part requests. Emits Goal Contracts, Deviation Notices, Phase Checks, Final Audits. Skip for Q&A or trivial edits."
+license: MIT
+metadata:
+  version: "6.2.0"
+  author: wede-wx
+  repository: https://github.com/wede-wx/atlas
 ---
 
-# Atlas Contract v6.1
+# Atlas Contract v6.2
 
 Keep the agent aligned with the user's original goal during execution.
+
+## Contents
+
+1. [Output Language](#1-output-language)
+2. [When To Use Atlas, and How Much](#2-when-to-use-atlas-and-how-much)
+3. [Footprints](#3-footprints)
+4. [Anti-Drift Defaults](#4-anti-drift-defaults)
+5–7. Goal Contract: build, format, confirmation gate
+8. [Phases (Heavy footprint)](#8-phases-heavy-footprint)
+9–11. Deviation Notices, Phase Checks, escalation
+12. [Final Audit](#12-final-audit) — includes automatic atlas-ledger handoff
+13. [Post Review](#13-post-review)
+14. [Final Principle](#14-final-principle)
+
+## Quick reference
+
+| Situation | Tier | What runs |
+| --- | --- | --- |
+| Any hard Heavy anchor fires (§2) | Heavy | Contract → Phase Ledger (≤4 phases) → Phase Checks → Final Audit |
+| 3+ risk signals, or genuinely ambiguous | Heavy | same as above |
+| 1–2 risk signals, single-part, clear | Medium | Contract (Gate) → straight run → Final Audit |
+| 0 signals, atomic change | Light | Internal contract only; no events unless a trigger fires |
+| Q&A, explanation, trivial edit | — | Atlas does not run |
+
+Hard deviation caught in Final Audit → atlas-ledger distillation runs automatically; write to Atlas.md still requires user confirmation.
 
 Atlas does not make the agent smarter. Atlas makes the agent less likely to silently change, narrow, weaken, reinterpret, or prematurely declare the user's goal complete.
 
@@ -62,7 +92,7 @@ Atlas Event:
 
 **Event ID rule (phase-anchored):** IDs are `<phase>-A<n>` — e.g. `P0-A1`, `P0-A2`, `P1-A1`, `P1-A2`. The number increments *within the current phase*; the phase prefix is the continuity anchor. Light/Medium work that has no phases uses `P0` as the prefix. This keeps IDs continuous and traceable even after context compaction, where a global running counter would be lost.
 
-**Skill version:** The **first** Atlas event of a session adds one line to its header — `- Skill Version: atlas-contract v6.1` — so reported issues can be traced to a version. Later events omit it.
+**Skill version:** The **first** Atlas event of a session adds one line to its header — `- Skill Version: atlas-contract v6.2` — so reported issues can be traced to a version. Later events omit it.
 
 Stop Status rules: use `Final` only in a Final Audit. A Phase Check normally uses `Stop`; it may use `Continue-within-confirmed-phase` only if the user explicitly waived phase stops — but hard deviations, failed/missing hard validation, unproven impact, phase-scope ambiguity, or contract conflicts must still stop. Do not merge multiple events into one vague summary.
 
@@ -84,11 +114,23 @@ Otherwise, classify the task by counting how many of these **risk signals** are 
 
 (A mock/stub risk is implied whenever Backend or Data is present.)
 
-## Complexity tiers
+## Hard Heavy anchors (check these FIRST, before counting signals)
+
+The signal count below is a judgment call, and judgment is exactly what drifts. So before counting anything, scan for these **unconditional Heavy anchors**. If ANY one is present, the task is Heavy — do not count signals, do not weigh it, do not argue it down to Medium:
+
+1. **Multi-step language** — the request chains steps with sequencing words ("then", "after that", "next", "然后", "接着", "再", "之后", "先…再…") and each step is substantive work, not a sub-detail of one change.
+2. **Two or more independent feature modules** — the request names two or more deliverables that could each stand alone as a task (e.g. "a login page and an admin dashboard").
+3. **Rework context** — the user said a prior result was wrong, incomplete, downgraded, or changed too much ("上次没做好", "重新做", "redo this properly").
+4. **Preserve + (Backend or Data)** — any preserve/do-not-change constraint combined with a Backend or Data signal. Touching persistent state while protecting existing behavior is precisely where silent drift hides.
+5. **Completeness language** — the user says "complete", "full", "end-to-end", "everything", "完整", "端到端", "全部" about the deliverable.
+
+These anchors are deliberately mechanical: recognizing the word "然后" is reliable; judging "how many signals is this really" is not. **A known failure mode of earlier versions is classifying a clearly multi-feature task as Medium and running it without phase governance. The anchors exist to close that hole. When an anchor fires, say so in one line in the contract** (e.g. "Heavy: anchor 1 — multi-step request").
+
+## Complexity tiers (only if NO hard anchor fired)
 
 - **Light** — **0** risk signals; a single, atomic, self-contained change; no rework context. → run in **Light footprint** (§3).
-- **Medium** — **1–2** risk signals; not long or multi-part; no rework context; interpretation is clear. → run in **Medium footprint** (§3).
-- **Heavy** — **3+** risk signals, **or** the task is explicitly long / multi-part, **or** it is rework after the user said a prior result was wrong/incomplete/changed too much, **or** interpretation is genuinely ambiguous. → run in **Heavy footprint** (§3).
+- **Medium** — **1–2** risk signals; not long or multi-part; interpretation is clear. → run in **Medium footprint** (§3).
+- **Heavy** — **3+** risk signals, **or** interpretation is genuinely ambiguous. → run in **Heavy footprint** (§3).
 
 If you are between two tiers, choose the heavier one. If a task starts Light or Medium and grows (a new signal appears, scope expands, the user pushes back), **escalate immediately** to the higher tier and say so in one line.
 
@@ -187,7 +229,7 @@ Chinese (anchor):
 ```text
 Atlas 事件：
 - 事件编号：P0-A1
-- 技能版本：atlas-contract v6.1
+- 技能版本：atlas-contract v6.2
 - 类型：目标合同（代码：GoalContract）
 - 触发来源：Skill 主动触发（代码：Skill-initiated）
 - 阶段：P0
@@ -274,6 +316,15 @@ Active Rule Anchor (post-compaction):
 
 For any long, multi-part, high-risk, or implementation-heavy task (Heavy footprint), build a Phase Ledger after the contract is confirmed and **before** implementation. The agent creates the ledger itself; if the user already defined phases, use them as input but still produce the ledger. Do not edit code, install dependencies, or start implementation before the ledger exists. After outputting it, stop and wait for confirmation.
 
+## Phase sizing rules (hard constraints)
+
+Phase count is where governance either earns its cost or becomes the reason the user turns it off. Two hard rules:
+
+1. **Maximum 4 phases.** If a draft ledger exceeds 4, the task was sliced too thin — merge adjacent phases until ≤4. If the work genuinely cannot fit in 4 substantive phases, that is a sign the request should be split into separate contracts; say so instead of producing a 7-phase ledger.
+2. **Minimum granularity: each phase must have an independently verifiable deliverable.** If two phases deliver into the same file, the same feature, or can only be validated together, they are one phase — merge them. A phase whose only content is "set up" or "prepare" for the next phase is not a phase.
+
+User-defined phases are input, not exemption: if the user's own breakdown violates these rules, propose the merged version in the ledger and note the change in one line, rather than silently adopting an over-sliced plan.
+
 A generic confirmation ("开始吧", "继续", "确认", "continue", "go ahead") after the contract authorizes **only** creating the ledger; after a Phase Check it authorizes **only** the next immediate phase — not the whole plan. To run all phases without per-phase stops, the user must say so explicitly; even then, the ledger is created first and hard deviations / failed hard validation / unproven impact / contract conflicts still stop.
 
 ## Phase Ledger format
@@ -304,7 +355,7 @@ Ledger Self-Check:
 ATLAS_STOP: <localized: awaiting confirmation of the ledger before starting phase 1>
 ```
 
-Ledger self-check: every hard Must Do is covered by ≥1 phase; every hard Must Not Do and Preserve is a prohibited scope or validation guard; every Test/Data Check is assigned to a phase; every phase has clear allowed scope, prohibited scope, and a stop condition; no phase silently spans the whole project; the final phase includes the Final Audit. If it fails, stop and ask the smallest blocking question.
+Ledger self-check: phase count ≤ 4 and every phase has an independently verifiable deliverable (§ Phase sizing rules); every hard Must Do is covered by ≥1 phase; every hard Must Not Do and Preserve is a prohibited scope or validation guard; every Test/Data Check is assigned to a phase; every phase has clear allowed scope, prohibited scope, and a stop condition; no phase silently spans the whole project; the final phase includes the Final Audit. If it fails, stop and ask the smallest blocking question.
 
 ## Phase scope authorization and merging
 
@@ -473,7 +524,7 @@ Emitted at the end of Medium and Heavy footprints. (Light footprint has no audit
 
 If any check finds a problem, emit a Deviation Notice (§9) or mark the item appropriately before finalizing. Do not smooth over findings.
 
-**Ledger-eligible drift prompt.** If the audit's Deviations section records one or more hard deviations that were caught during the task (e.g. a hard Deviation Notice was raised, or an item is Violation/Partial that should have been Complete), end the audit with one line offering to invoke `atlas-ledger` to record them. Do not auto-write to Atlas.md and do not run the distillation yourself — only surface the offer, so the user does not have to remember that something was worth recording. If no hard deviation was caught, state "None" on that line. This is a prompt, not an automatic action.
+**Ledger handoff (automatic).** If the audit's Deviations section records one or more hard deviations that were caught during the task (a hard Deviation Notice was raised, or an item is Violation/Partial that should have been Complete), do **not** merely offer to invoke `atlas-ledger` — invoke it. Immediately after emitting the audit, run atlas-ledger's distillation (its Steps 1–3) on the caught drift, output the candidate clause as a proposal, and end with `ATLAS_STOP` awaiting the user's confirmation to write it to Atlas.md. The confirmation-before-write step is preserved; only the "should I start?" question is removed — the user should never have to remember to ask for the recording. If atlas-ledger is not installed, fall back to the one-line offer. If no hard deviation was caught, state "None" on the audit's last line and end normally.
 
 Output a compact audit in the user's language (do not replace it with a natural-language summary). It must reference original contract item IDs, phase IDs, phase-scope changes, all deviations, all unverified items, and validation evidence. Do not merge items into a generic summary.
 
@@ -508,7 +559,7 @@ Deviations: None / ...
 Unverified: None / ...
 Files Changed / Evidence: ...
 Final Statement: ...
-Ledger-eligible drift detected: None / N hard deviation(s) were recorded (source: ...) — offer to invoke atlas-ledger to record them?
+Ledger handoff: None / N hard deviation(s) caught (source: ...) — atlas-ledger distillation follows below
 ```
 
 Chinese (anchor):
@@ -545,7 +596,7 @@ Atlas 最终审计
 文件变更 / 证据：...
 最终说明：...
 
-可入账偏差检测：无 / 检测到 N 条被记录的硬偏离（来源：...），是否调用 atlas-ledger 记录？
+账本交棒：无 / 捕获 N 条硬偏离（来源：...），atlas-ledger 蒸馏流程如下
 ```
 
 Do not say "done", "complete", "finished", "完成", "已完成", or equivalent if any hard item is partial, blocked, mocked, stubbed, hidden, downgraded, skeleton-only, visual-only, unverified, missing required backend/API/database/persistence, different from required data semantics / tests / reference layout / preserve constraints, missing a required Phase Check, or missing required validation evidence. If not fully verified, mark `Unverified` or `Partial`. Use Stop Status `Final` only here.
@@ -582,3 +633,4 @@ ATLAS_STOP: <localized: awaiting confirmation of repair direction>
 Atlas may slow the agent down when speed would cause a silent goal change. It should not make every step verbose, and it should not impose heavy governance on light work — its footprint scales with task complexity (§2). Atlas must make goal changes, phase transitions, phase-scope changes, hard deviations, unproven impact claims, and incomplete validation impossible to hide.
 
 **Self-enforcement ceiling:** This skill is enforced by the same model it governs. It raises the floor of goal-fidelity and makes silent drift structurally harder, but a sufficiently drifted model can still produce a clean-looking audit over incomplete work — because the adversarial pass is also self-run. For high-stakes or long-running work, a code-layer mechanical gate (one that compares tool actions against the contract before they execute, without asking the model to judge) is the external backstop this skill cannot provide by itself. Treat Atlas as one necessary layer, not a complete solution.
+

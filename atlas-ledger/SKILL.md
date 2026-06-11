@@ -1,11 +1,38 @@
 ---
 name: atlas-ledger
-description: "Companion to atlas-contract. Use after a coding task or phase governed by atlas-contract completes with a caught problem — a Final Audit marking Violation/Partial/Unverified that should have been Complete, a Post Review, a hard Deviation Notice, a recurrence caught in a Phase Check, or the user saying the result drifted/was wrong/incomplete/mocked (Chinese: 不对, 返工, 漏了, 这个记下来下次别再犯). It distills the caught drift into a reusable, project-local contract clause and, after user confirmation, records it in Atlas.md so the same drift is structurally prevented next time. Do not use on clean completions, optimization requests, ordinary code review, style preferences, or general takeaways; it records only caught drift, and only as enforceable clauses."
+description: "Companion to atlas-contract. Auto-invoked by its Final Audit on caught drift; also use after Post Reviews or user requests to record a mistake. Distills drift into WHEN/DON'T/INSTEAD clauses, writes to Atlas.md after confirmation."
+license: MIT
+metadata:
+  version: "2.2.0"
+  author: wede-wx
+  repository: https://github.com/wede-wx/atlas
 ---
 
-# Atlas Ledger v2.1
+# Atlas Ledger v2.2
 
 Give the Atlas series a memory.
+
+## Contents
+
+1. [Output Language](#1-output-language)
+2. [When To Run](#2-when-to-run)
+3. [Distillation (the core)](#3-distillation-the-core) — Steps 1–6
+4. [Atlas.md format](#4-atlasmd-format)
+5. [Clause maintenance](#5-clause-maintenance-keep-the-ledger-alive-not-ossified)
+6. [Integration with atlas-contract](#6-integration-with-atlas-contract-the-read-back-half)
+7. [Final Principle](#7-final-principle)
+
+## Quick reference
+
+```text
+caught drift (auto handoff from Final Audit / Post Review / Phase Check / user request)
+ → Step 1  state facts, not motive
+ → Step 2  draft WHEN / DON'T / INSTEAD
+ → Step 3  four gates: Actionability → Replay → Generalization → Over-reach
+ → Step 4  first occurrence = Observation [O#]; repeat or high-severity = Clause [L#]
+ → Step 5  propose, ATLAS_STOP, write only after user confirms
+ → Step 6  merge-first into Atlas.md; confirmed clauses ≤ 15
+```
 
 `atlas-contract` defends the goal **within one conversation**, but it starts from zero every time — it does not know where this project drifted before. `atlas-ledger` closes that gap: when a drift is caught, it distills the lesson into a permanent, project-local **contract clause** and (after the user confirms) writes it to `Atlas.md`. Next time `atlas-contract` builds a Goal Contract, it loads the relevant clauses, so the defense line thickens with each catch. That is the compounding effect.
 
@@ -42,13 +69,14 @@ Chinese label mapping (process labels — localize these):
 
 # 2. When To Run
 
-Run distillation only when a drift has been **caught**:
+Run distillation only when a drift has been **caught**. Triggers, in order of how they usually arrive:
 
-1. an `atlas-contract` **Final Audit** marks something Violation / Partial / Unverified that should have been Complete;
+1. **Automatic handoff from atlas-contract (primary path).** When an `atlas-contract` **Final Audit** records one or more hard deviations (a hard Deviation Notice was raised, or an item is Violation / Partial / Unverified that should have been Complete), the contract skill invokes this distillation **immediately and without asking** — the candidate clause is proposed right after the audit, and the flow stops at the write-confirmation. The user should never have to remember to ask for the recording.
 2. an `atlas-contract` **Post Review** (the user said the result was wrong / incomplete / downgraded / mocked);
-3. a hard **Deviation Notice** was raised;
-4. a **Phase Check** catches the same class of error recurring;
-5. the user explicitly says "record this so it doesn't happen again."
+3. a **Phase Check** catches the same class of error recurring;
+4. the user explicitly says "record this so it doesn't happen again."
+
+In every path, the confirm-before-write stop (Step 5) is preserved: automatic triggering changes **when distillation starts**, never **whether the user approves the write**.
 
 Do **not** run on: clean completions; optimization requests; ordinary code review; style preferences; general takeaways. There is nothing to enforce in those.
 
@@ -113,7 +141,7 @@ Mark these `severity: high` and note `confirmed on first occurrence`.
 `Atlas.md` is long-term project state — a wrong clause silently shapes every future contract. So the model does **not** write it unsupervised. Default flow:
 
 ```text
-caught drift
+caught drift (auto handoff from Final Audit, or other §2 trigger)
  → draft clause (Steps 1–2)
  → pass four gates (Step 3)
  → output the candidate clause as a proposal
